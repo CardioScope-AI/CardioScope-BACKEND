@@ -7,6 +7,9 @@ import joblib
 from fastapi import FastAPI
 from fastapi.responses import JSONResponse
 
+from app.cors import with_cors
+from app.errors import register_error_handlers
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -23,11 +26,15 @@ async def lifespan(app: FastAPI):
     yield
 
 
-app = FastAPI(title="CardioScope", version="0.1.0", lifespan=lifespan)
+api = FastAPI(title="CardioScope", version="0.1.0", lifespan=lifespan)
+register_error_handlers(api)
 
 
-@app.get("/health")
+@api.get("/health")
 def health():
-    ready = app.state.pipeline is not None
+    ready = api.state.pipeline is not None
     return JSONResponse(status_code=200 if ready else 503,
                         content={"status": "ready" if ready else "model_unavailable", "model_ready": ready})
+
+
+app = with_cors(api)
