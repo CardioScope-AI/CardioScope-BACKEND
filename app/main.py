@@ -10,11 +10,22 @@ from fastapi.responses import JSONResponse
 from app.cors import with_cors
 from app.errors import register_error_handlers
 
+BACKEND_ROOT = Path(__file__).resolve().parents[1]
+DEFAULT_MODEL_PATH = BACKEND_ROOT.parent / "CardioScope-DATA-ML" / "artifacts" / "pipeline.joblib"
+
+
+def model_path():
+    configured = os.environ.get("MODEL_PATH")
+    if not configured:
+        return DEFAULT_MODEL_PATH
+    path = Path(configured).expanduser()
+    return path if path.is_absolute() else BACKEND_ROOT / path
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     app.state.pipeline = None
-    path = Path(os.environ.get("MODEL_PATH", "../CardioScope-DATA-ML/artifacts/pipeline.joblib"))
+    path = model_path()
     if path.is_file():
         try:
             pipeline = joblib.load(path)

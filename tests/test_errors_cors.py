@@ -10,7 +10,7 @@ from pydantic import BaseModel
 
 from app.cors import with_cors
 from app.errors import register_error_handlers
-from app.main import app
+from app.main import app, model_path, BACKEND_ROOT, DEFAULT_MODEL_PATH
 
 
 class Measurement(BaseModel):
@@ -112,6 +112,22 @@ class ErrorsAndCorsTests(unittest.TestCase):
                     self.assertEqual(client.get('/docs').status_code, 200)
                     self.assertEqual(client.get('/openapi.json').status_code, 200)
                     self.assertEqual(client.get('/predict').status_code, 404)
+
+    def test_model_paths_do_not_depend_on_working_directory(self):
+        previous = Path.cwd()
+        with tempfile.TemporaryDirectory() as directory:
+            try:
+                os.chdir(directory)
+                with patch.dict(os.environ, {'MODEL_PATH': ''}):
+                    self.assertEqual(model_path(), DEFAULT_MODEL_PATH)
+                    self.assertTrue(model_path().is_absolute())
+                with patch.dict(os.environ, {'MODEL_PATH': 'artifacts/pipeline.joblib'}):
+                    self.assertEqual(model_path(), BACKEND_ROOT / 'artifacts/pipeline.joblib')
+                absolute = Path(directory) / 'pipeline.joblib'
+                with patch.dict(os.environ, {'MODEL_PATH': str(absolute)}):
+                    self.assertEqual(model_path(), absolute)
+            finally:
+                os.chdir(previous)
 
 
 if __name__ == '__main__':
