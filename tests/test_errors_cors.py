@@ -17,7 +17,7 @@ class Measurement(BaseModel):
     age: int
 
 
-def test_application():
+def create_test_application():
     api = FastAPI()
     register_error_handlers(api)
 
@@ -43,7 +43,7 @@ def test_application():
 class ErrorsAndCorsTests(unittest.TestCase):
     def setUp(self):
         with patch.dict(os.environ, {'CORS_ORIGINS': 'http://localhost:5173,http://127.0.0.1:5173'}):
-            self.client = TestClient(test_application(), raise_server_exceptions=False)
+            self.client = TestClient(create_test_application(), raise_server_exceptions=False)
 
     def test_preflight_allows_local_origins_and_json_post(self):
         for origin in ['http://localhost:5173', 'http://127.0.0.1:5173']:
@@ -95,12 +95,12 @@ class ErrorsAndCorsTests(unittest.TestCase):
 
     def test_configurable_origins(self):
         with patch.dict(os.environ, {'CORS_ORIGINS': ' https://demo.example , '}):
-            client = TestClient(test_application())
+            client = TestClient(create_test_application())
         response = client.get('/missing', headers={'Origin': 'https://demo.example'})
         self.assertEqual(response.headers['access-control-allow-origin'], 'https://demo.example')
         with patch.dict(os.environ, {'CORS_ORIGINS': '*'}):
             with self.assertRaises(ValueError):
-                test_application()
+                create_test_application()
 
     def test_existing_health_and_docs_remain_available_without_model(self):
         with tempfile.TemporaryDirectory() as directory:
