@@ -111,7 +111,14 @@ class ErrorsAndCorsTests(unittest.TestCase):
                     self.assertEqual(response.json(), {'status': 'model_unavailable', 'model_ready': False})
                     self.assertEqual(client.get('/docs').status_code, 200)
                     self.assertEqual(client.get('/openapi.json').status_code, 200)
-                    self.assertEqual(client.get('/predict').status_code, 404)
+                    payload = {
+                        'age': 63, 'sex': 1, 'cp': 1, 'trestbps': 145, 'chol': 233,
+                        'fbs': 1, 'restecg': 2, 'thalach': 150, 'exang': 0,
+                        'oldpeak': 2.3, 'slope': 3, 'ca': 0, 'thal': 6,
+                    }
+                    response = client.post('/predict', json=payload)
+                    self.assertEqual(response.status_code, 503)
+                    self.assertEqual(response.json()['error']['code'], 'model_unavailable')
 
     def test_model_paths_do_not_depend_on_working_directory(self):
         previous = Path.cwd()
