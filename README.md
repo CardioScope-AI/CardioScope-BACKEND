@@ -54,7 +54,7 @@ Exemple de réponse commune :
 .\.venv\Scripts\python.exe -m unittest discover -s tests -v
 ```
 
-Sept tests passent : origines locales et origine personnalisée, refus d'origine/méthode, pré-vérifications JSON POST, erreurs HTTP et conservation des en-têtes, validation 422, erreur 500 journalisée avec CORS, disponibilité inchangée de health/docs sans modèle. Les routes de validation et d'erreur utilisées par les tests n'existent que dans l'application de test ; aucune route de démonstration n'est exposée en production. La validation de `/predict` restera à effectuer lors de son implémentation.
+Seize tests passent : origines locales et origine personnalisée, refus d'origine/méthode, pré-vérifications JSON POST, erreurs HTTP et conservation des en-têtes, validation 422, erreur 500 journalisée avec CORS, disponibilité inchangée de health/docs sans modèle. Les routes de validation et d'erreur utilisées par les tests n'existent que dans l'application de test ; aucune route de démonstration n'est exposée en production. La validation de `/predict` restera à effectuer lors de son implémentation.
 
 ## Lancement sous Linux (tâche 09)
 
@@ -139,7 +139,7 @@ Pour démarrer frontend et backend ensemble, suivre le README de `CardioScope-AP
 
 ### ?tat des v?rifications de la t?che 09
 
-- Les huit tests automatis?s passent sous Windows, dont le contr?le du chemin du mod?le depuis un autre dossier de travail.
+- Les seize tests automatisés passent sous Windows, dont le contr?le du chemin du mod?le depuis un autre dossier de travail.
 - Un v?ritable serveur Uvicorn a ?t? lanc? depuis un dossier temporaire avec `--app-dir` : `/docs` r?pond 200 et `/health` r?pond 503 avec le JSON attendu sans mod?le. Le processus de v?rification a ?t? arr?t?.
 - La syntaxe de `scripts/run.sh` est valid?e par `sh -n` dans Ubuntu via WSL.
 - Le lancement complet natif sous Linux avec Python 3.13.7 et ses d?pendances reste ? v?rifier sur le poste Linux. Aucun succ?s de d?ploiement Linux complet n'est revendiqu?.
