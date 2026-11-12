@@ -1,6 +1,6 @@
 # CardioScope · Backend
 
-API, traitement des requêtes, chargement du modèle entraîné et futures prédictions. FastAPI minimal ; `/predict` sera implémenté après validation du [contrat](../CardioScope-APP/docs/contrat-api.md).
+API FastAPI de disponibilité du service et de prédiction via le pipeline Scikit-learn. La route `POST /predict` suit le schéma de profil défini dans `app/profile.py` et la proposition du [contrat](../CardioScope-APP/docs/contrat-api.md).
 
 ## Démarrage Windows (PowerShell)
 Depuis ce dépôt, avec Python 3.13.7 :
@@ -12,11 +12,13 @@ py -3.13 -m venv .venv
 Ouvrir http://localhost:8000/docs ; http://localhost:8000/health renvoie 503 sans pipeline. Le serveur reste accessible. Aucun entraînement au démarrage.
 
 ## Modèle et Docker
-Image Python `3.13.7-slim-bookworm`, scikit-learn `1.6.1`, joblib `1.4.2`, NumPy `2.2.6`, SciPy `1.15.3`, identiques au ML. Modifier les versions dans les deux dépôts ensemble et réexporter le pipeline.
+Image Python `3.13.7-slim-bookworm`, scikit-learn `1.6.1`, joblib `1.4.2`, NumPy `2.2.6`, pandas `2.2.3`, SciPy `1.15.3`, identiques au ML. Modifier les versions dans les deux dépôts ensemble et réexporter le pipeline.
 
 Chemin local par défaut : `../CardioScope-DATA-ML/artifacts/pipeline.joblib` depuis la racine du dépôt backend, configurable par `MODEL_PATH`. Ce chemin est résolu à partir du fichier Python et ne dépend pas du dossier de lancement. Un `MODEL_PATH` relatif est également résolu depuis la racine backend ; un chemin absolu est conservé. Compose monte le dossier artifacts en lecture seule dans `/models` et utilise `/models/pipeline.joblib`. Le modèle est chargé une fois au démarrage ; redémarrer le backend après export. N’utiliser que des artefacts de confiance : joblib peut exécuter du code lors du chargement.
 
 `/health` vérifie le chargement et la présence de la méthode `predict`, pas la qualité ni la compatibilité du schéma des entrées. Un fichier absent ou invalide donne 503 ; `/docs` reste disponible. Les instructions Compose sont dans le dépôt App.
+
+`POST /predict` reçoit les 13 champs JSON de `PatientProfile`. La requête est validée avant l’appel au modèle ; les valeurs sont remises dans l’ordre de `COLUMNS` et transmises comme une ligne pandas nommée. Une réponse valide contient uniquement `{"prediction": 0}` ou `{"prediction": 1}`. Sans pipeline, la route répond 503 au format d’erreur commun. La compatibilité de l’artefact réel avec les noms de colonnes et l’encodage de classes reste à vérifier quand l’équipe ML l’aura exporté.
 
 ## CORS et erreurs communes (tâche 07)
 
@@ -45,7 +47,7 @@ Exemple de réponse commune :
 {"error":{"code":"model_unavailable","message":"Le modèle est indisponible."}}
 ```
 
-`/health` conserve son format existant (`status`, `model_ready`) et ses statuts 200/503 pour rester compatible avec le frontend. Les réponses explicites `JSONResponse` ne passent pas par les gestionnaires d'exceptions. Pour une future route de prédiction, lever `HTTPException(status_code=503)` utilise le format commun. `/predict` n'est pas ajouté dans cette tâche et le format reste à coordonner avec son responsable. Le frontend actuel utilise les codes HTTP pour ses messages et n'a pas besoin de dépendre de la structure détaillée des erreurs.
+`/health` conserve son format existant (`status`, `model_ready`) et ses statuts 200/503 pour rester compatible avec le frontend. Les réponses explicites `JSONResponse` ne passent pas par les gestionnaires d'exceptions. La route `/predict` lève `HTTPException(status_code=503)` quand le pipeline n'est pas disponible ; le format d'erreur commun s'applique. Le frontend utilise les codes HTTP pour ses messages et n'a pas besoin de dépendre de la structure détaillée des erreurs.
 
 ### Vérifications
 
@@ -54,7 +56,7 @@ Exemple de réponse commune :
 .\.venv\Scripts\python.exe -m unittest discover -s tests -v
 ```
 
-Sept tests passent : origines locales et origine personnalisée, refus d'origine/méthode, pré-vérifications JSON POST, erreurs HTTP et conservation des en-têtes, validation 422, erreur 500 journalisée avec CORS, disponibilité inchangée de health/docs sans modèle. Les routes de validation et d'erreur utilisées par les tests n'existent que dans l'application de test ; aucune route de démonstration n'est exposée en production. La validation de `/predict` restera à effectuer lors de son implémentation.
+Les tests couvrent les origines locales et personnalisées, les refus CORS, les erreurs HTTP, la validation 422, la journalisation des erreurs 500, ainsi que `/health`, `/docs` et le refus 503 de `/predict` sans modèle. Les routes auxiliaires de validation et d'erreur n'existent que dans l'application de test ; aucune route de démonstration n'est exposée en production. Une prédiction réelle reste à vérifier dès qu'un artefact ML est disponible.
 
 ## Lancement sous Linux (tâche 09)
 
@@ -111,7 +113,7 @@ curl -i http://127.0.0.1:8000/route-inexistante
 curl -i -X OPTIONS http://127.0.0.1:8000/predict -H 'Origin: http://localhost:5173' -H 'Access-Control-Request-Method: POST' -H 'Access-Control-Request-Headers: content-type'
 ```
 
-Attendus : health 503 sans modèle (200 avec un artefact chargé exposant `predict`), docs 200, route inexistante 404 au format commun, pré-vérification CORS 200 avec l'origine autorisée. Une pré-vérification réussie ne prouve pas que `/predict` existe : cette route n'est pas encore implémentée dans ce dépôt.
+Attendus : health 503 sans modèle (200 avec un artefact chargé exposant `predict`), docs 200, route inexistante 404 au format commun, pré-vérification CORS 200 avec l'origine autorisée. Un POST `/predict` avec un profil valide renvoie 503 sans modèle ou la classe prédite avec un artefact chargé.
 
 Tests automatisés :
 
