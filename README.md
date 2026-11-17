@@ -18,7 +18,7 @@ Chemin local par défaut : `../CardioScope-DATA-ML/artifacts/pipeline.joblib` de
 
 `/health` vérifie le chargement et la présence de la méthode `predict`, pas la qualité ni la compatibilité du schéma des entrées. Un fichier absent ou invalide donne 503 ; `/docs` reste disponible. Les instructions Compose sont dans le dépôt App.
 
-`POST /predict` reçoit les 13 champs JSON de `PatientProfile`. La requête est validée avant l’appel au modèle ; les valeurs sont remises dans l’ordre de `COLUMNS` et transmises comme une ligne pandas nommée. Une réponse valide contient uniquement `{"prediction": 0}` ou `{"prediction": 1}`. Sans pipeline, la route répond 503 au format d’erreur commun. La compatibilité de l’artefact réel avec les noms de colonnes et l’encodage de classes reste à vérifier quand l’équipe ML l’aura exporté.
+`POST /predict` reçoit les 13 champs JSON de `PatientProfile`. La requête est validée avant l’appel au modèle ; les valeurs sont remises dans l’ordre de `COLUMNS` et transmises comme une ligne pandas nommée. Une réponse valide contient uniquement `{"prediction": 0}` ou `{"prediction": 1}`. Sans pipeline, la route répond 503 au format d’erreur commun. L’artefact ML local a été testé avec les trois profils fictifs du frontend ; répéter ce test après chaque nouvel export du modèle.
 
 ## CORS et erreurs communes (tâche 07)
 
@@ -56,7 +56,33 @@ Exemple de réponse commune :
 .\.venv\Scripts\python.exe -m unittest discover -s tests -v
 ```
 
-Les tests couvrent les origines locales et personnalisées, les refus CORS, les erreurs HTTP, la validation 422, la journalisation des erreurs 500, ainsi que `/health`, `/docs` et le refus 503 de `/predict` sans modèle. Les routes auxiliaires de validation et d'erreur n'existent que dans l'application de test ; aucune route de démonstration n'est exposée en production. Une prédiction réelle reste à vérifier dès qu'un artefact ML est disponible.
+Les tests couvrent les origines locales et personnalisées, les refus CORS, les erreurs HTTP, la validation 422, la journalisation des erreurs 500, ainsi que `/health`, `/docs` et le refus 503 de `/predict` sans modèle. Les routes auxiliaires de validation et d'erreur n'existent que dans l'application de test ; aucune route de démonstration n'est exposée en production. La suite teste aussi la réponse 0/1, l’ordre des 13 colonnes, le refus des sorties invalides et, si l’artefact local existe, trois prédictions avec le vrai modèle.
+
+## Test de l’API avec le frontend (tâche 08)
+
+La suite `tests/test_predict.py` vérifie le contrat de `POST /predict` sans dépendre du modèle local : elle injecte un faux pipeline et contrôle les réponses, la validation, les erreurs et CORS. Un test supplémentaire charge `../CardioScope-DATA-ML/artifacts/pipeline.joblib` lorsqu’il existe et envoie les trois profils fictifs de l’interface. Il est ignoré si cet artefact est absent.
+
+Pour tester le trajet HTTP complet sur Windows, ouvrir deux terminaux PowerShell. Dans le premier, depuis `CardioScope-BACKEND`, lancer l’API avec le modèle exporté par l’équipe ML :
+
+```powershell
+.\.venv\Scripts\python.exe -m uvicorn app.main:app --host 127.0.0.1 --port 8000
+```
+
+Dans le second, depuis le dépôt voisin `CardioScope-FRONTEND`, lancer Vite :
+
+```powershell
+npm run dev
+```
+
+Dans un troisième terminal, depuis `CardioScope-BACKEND`, lancer la vérification :
+
+```powershell
+.\.venv\Scripts\python.exe scripts/check_frontend_integration.py
+```
+
+Le script utilise uniquement un profil fictif. Il vérifie que la page du frontend répond, que le modèle est prêt sur `/health`, que le proxy Vite transmet `/api/health` et `/api/predict`, que la prédiction directe est identique à celle via le proxy, et qu’un profil invalide reçoit une erreur 422 sans écho de la valeur saisie. Un échec termine le script avec un code non nul. Le proxy Vite cible `http://127.0.0.1:8000` par défaut ; adapter `--backend` et `--frontend` si les serveurs utilisent d’autres adresses. Arrêter les serveurs avec Ctrl+C après la vérification.
+
+Vérification locale du 17 novembre 2026 : les 21 tests backend passent, dont le test du véritable artefact ML. Le contrôle HTTP complet avec le frontend Vite a réussi : modèle prêt, prédiction 0/1 identique en direct et via `/api`, et validation 422 transmise. Les trois profils fictifs ont été soumis dans le navigateur : classes affichées 0, 1 et 0, dans cet ordre. En effaçant l’âge avant la soumission, le formulaire affiche « Renseignez le champ « Âge ». » et n’appelle pas le modèle. Ces résultats concernent l’artefact et les versions présents sur ce poste ; les répéter après un changement de modèle ou de contrat.
 
 ## Lancement sous Linux (tâche 09)
 
