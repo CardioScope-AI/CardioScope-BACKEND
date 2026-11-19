@@ -50,8 +50,10 @@ par défaut et exécuté avec succès séparément. L’API et le pipeline exist
 donc aussi contrôlés. Les commandes Alembic ont été exécutées depuis le venv
 Windows vers PostgreSQL Docker via un port local temporaire ; la publication
 temporaire de la base est retirée après les vérifications.
-Le Dockerfile est préparé avec les migrations, mais sa nouvelle image n’a pas
-encore été reconstruite dans cette vérification.
+L’image Docker de #16 a ensuite été reconstruite et démarrée : Alembic current
+indique 0001 (head), Alembic check ne détecte aucune différence et Swagger répond
+200 sur http://localhost:8001/docs. La validation de l’image incluant la commande
+d’initialisation #17 est décrite dans le [guide admin](initialisation-admin.md).
 
 ## Paramètres de connexion
 

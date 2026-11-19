@@ -10,7 +10,15 @@ migration. Appliquer `alembic upgrade head` explicitement : le démarrage API ne
 crée ni tables ni compte administrateur. L’authentification et l’enregistrement
 des simulations restent à implémenter dans les tâches suivantes.
 
-## Lancer le serveur sous Windows (PowerShell)
+## Initialiser le compte admin (BACKEND #17)
+
+Après les migrations, lancer `python -m app.init_admin --username admin` dans
+l’environnement backend configuré. Le mot de passe est saisi sans affichage et
+stocké uniquement sous forme de hash Argon2id. Aucun secret par défaut ni compte
+supplémentaire n’est créé. Voir le [guide d’initialisation](docs/initialisation-admin.md)
+pour Docker, le venv et le mode fichier de secret. La connexion HTTP reste à livrer en #18.
+
+## Démarrer le serveur sous Windows (PowerShell)
 Depuis ce dépôt, avec Python 3.13.7 :
 ```powershell
 py -3.13 -m venv .venv
