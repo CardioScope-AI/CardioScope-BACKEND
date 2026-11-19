@@ -8,3 +8,6 @@ scipy==1.15.3
 scikit-learn==1.6.1
 joblib==1.4.2
 threadpoolctl==3.6.0
+SQLAlchemy==2.0.58
+alembic==1.20.1
+psycopg[binary]==3.3.9
