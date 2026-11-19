@@ -2,7 +2,15 @@
 
 API FastAPI de disponibilité du service et de prédiction via le pipeline Scikit-learn. La route `POST /predict` suit le schéma de profil défini dans `app/profile.py` et la proposition du [contrat](../CardioScope-APP/docs/contrat-api.md).
 
-## Démarrage Windows (PowerShell)
+## Base de données et migrations (BACKEND #16)
+
+Le [guide PostgreSQL et Alembic](docs/base-donnees.md) décrit la configuration
+DB_*, les tables admin/sessions/simulations/CSRF/limitation et les commandes de
+migration. Appliquer `alembic upgrade head` explicitement : le démarrage API ne
+crée ni tables ni compte administrateur. L’authentification et l’enregistrement
+des simulations restent à implémenter dans les tâches suivantes.
+
+## Lancer le serveur sous Windows (PowerShell)
 Depuis ce dépôt, avec Python 3.13.7 :
 ```powershell
 py -3.13 -m venv .venv
