@@ -15,6 +15,8 @@ from sqlalchemy.orm import Session
 
 from app.database import database_url, get_engine
 from app.models import Admin, AdminSession, Base, CsrfContext, LoginAttemptWindow, Simulation
+from app.init_admin import initialize_admin, AdminAlreadyExists
+from app.passwords import verify_password
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -68,9 +70,14 @@ class PostgreSQLMigrationTests(unittest.TestCase):
 
                 with Session(engine, expire_on_commit=False) as session:
                     self.assertEqual(session.scalar(sa.select(sa.func.count()).select_from(Admin)), 0)
-                    admin = Admin(username="test-admin", password_hash="test-placeholder-not-a-password")
-                    session.add(admin)
-                    session.flush()
+                    admin_id = initialize_admin(session, "test-admin", "a-test-password-for-integration")
+                    admin = session.get(Admin, admin_id)
+                    saved_hash = admin.password_hash
+                    self.assertTrue(saved_hash.startswith("$argon2id$"))
+                    self.assertTrue(verify_password(saved_hash, "a-test-password-for-integration"))
+                    with self.assertRaises(AdminAlreadyExists):
+                        initialize_admin(session, "other-admin", "a-different-test-password")
+                    self.assertEqual(session.get(Admin, admin_id).password_hash, saved_hash)
                     login = AdminSession(admin_id=admin.id, token_hash="b" * 64,
                                          created_at=now, expires_at=expiry)
                     session.add(login)
