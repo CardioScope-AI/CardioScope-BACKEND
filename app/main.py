@@ -12,6 +12,7 @@ import pandas as pd
 from pydantic import BaseModel
 
 from app.cors import with_cors
+from app.auth import register_auth
 from app.errors import register_error_handlers
 from app.profile import COLUMNS, PatientProfile
 
@@ -44,6 +45,7 @@ async def lifespan(app: FastAPI):
 
 api = FastAPI(title="CardioScope", version="0.1.0", lifespan=lifespan)
 register_error_handlers(api)
+register_auth(api)
 
 
 class PredictionResponse(BaseModel):

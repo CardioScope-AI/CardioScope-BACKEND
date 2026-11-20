@@ -49,11 +49,11 @@ class ErrorsAndCorsTests(unittest.TestCase):
         for origin in ['http://localhost:5173', 'http://127.0.0.1:5173']:
             response = self.client.options('/validate', headers={
                 'Origin': origin, 'Access-Control-Request-Method': 'POST',
-                'Access-Control-Request-Headers': 'content-type',
+                'Access-Control-Request-Headers': 'content-type,x-csrf-token',
             })
             self.assertEqual(response.status_code, 200)
             self.assertEqual(response.headers['access-control-allow-origin'], origin)
-            self.assertNotIn('access-control-allow-credentials', response.headers)
+            self.assertEqual(response.headers['access-control-allow-credentials'], 'true')
 
     def test_preflight_denies_other_origin_and_method(self):
         for origin, method in [('https://other.example', 'POST'), ('http://localhost:5173', 'DELETE')]:
