@@ -4,15 +4,15 @@ from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import Literal
 
-import joblib
 import numpy as np
-from fastapi import FastAPI, HTTPException
+from fastapi import Depends, FastAPI, HTTPException, Response
 from fastapi.responses import JSONResponse
 import pandas as pd
 from pydantic import BaseModel
 
 from app.cors import with_cors
-from app.auth import register_auth
+from app.auth import AuthError, ErrorEnvelope, register_auth, require_admin
+from app.model_info import ModelInfo, load_snapshot
 from app.errors import register_error_handlers
 from app.profile import COLUMNS, PatientProfile
 
@@ -31,13 +31,13 @@ def model_path():
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     app.state.pipeline = None
+    app.state.model_info = None
     path = model_path()
     if path.is_file():
         try:
-            pipeline = joblib.load(path)
-            if not callable(getattr(pipeline, "predict", None)):
-                raise ValueError("Le pipeline doit exposer predict")
+            pipeline, info = load_snapshot(path)
             app.state.pipeline = pipeline
+            app.state.model_info = info
         except Exception:
             logging.exception("Pipeline inutilisable : API disponible sans modèle")
     yield
@@ -50,6 +50,17 @@ register_auth(api)
 
 class PredictionResponse(BaseModel):
     prediction: Literal[0, 1]
+
+
+@api.get("/model-info", response_model=ModelInfo, tags=["Modèle"], responses={
+    401: {"model": ErrorEnvelope}, 503: {"model": ErrorEnvelope},
+})
+def model_info(response: Response, auth=Depends(require_admin)):
+    info = api.state.model_info
+    if info is None:
+        raise AuthError(503, "model_unavailable", "Les informations du modèle sont indisponibles.")
+    response.headers["Cache-Control"] = "no-store"
+    return info
 
 
 @api.get("/health")
