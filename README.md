@@ -193,3 +193,9 @@ Pour démarrer frontend et backend ensemble, suivre le README de `CardioScope-AP
 
 Routes login, CSRF et identité : voir [le guide](docs/connexion-admin.md).
 La déconnexion et la protection des routes métier restent les tâches #19/#20.
+
+## Informations du modèle (#24)
+
+`GET /model-info` est réservé à l’administrateur. Voir [le guide de la fiche et de
+la release ML](docs/informations-modele.md). Les exports historiques sans manifeste
+restent utilisables pour prédire, mais ne fournissent pas de fiche vérifiée (503).

@@ -224,7 +224,14 @@ def login(payload: LoginInput, request: Request, response: Response,
     return identity(admin, session)
 
 
-def require_admin(request: Request, db=Depends(auth_database)):
+def session_database(request: Request):
+    token = request.cookies.get(SESSION_COOKIE, "")
+    if not token or len(token) > 256:
+        raise AuthError(401, "unauthenticated", "Connectez-vous pour accéder à cet espace.")
+    yield from auth_database()
+
+
+def require_admin(request: Request, db=Depends(session_database)):
     found = find_session(db, request, utcnow())
     if found is None:
         raise AuthError(401, "unauthenticated", "Connectez-vous pour accéder à cet espace.")
