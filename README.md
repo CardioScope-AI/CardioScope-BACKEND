@@ -188,3 +188,8 @@ Pour démarrer frontend et backend ensemble, suivre le README de `CardioScope-AP
 - La syntaxe de `scripts/run.sh` est valid?e par `sh -n` dans Ubuntu via WSL.
 - Le lancement complet natif sous Linux avec Python 3.13.7 et ses d?pendances reste ? v?rifier sur le poste Linux. Aucun succ?s de d?ploiement Linux complet n'est revendiqu?.
 - Le moteur Docker Desktop Linux n'?tait pas d?marr? : l'image et le lancement Docker n'ont pas pu ?tre valid?s pendant cette t?che.
+
+## Connexion administrateur (#18)
+
+Routes login, CSRF et identité : voir [le guide](docs/connexion-admin.md).
+La déconnexion et la protection des routes métier restent les tâches #19/#20.

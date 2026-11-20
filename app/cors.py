@@ -15,7 +15,7 @@ def with_cors(api):
     return CORSMiddleware(
         api,
         allow_origins=origins,
-        allow_credentials=False,
+        allow_credentials=True,
         allow_methods=["GET", "POST"],
-        allow_headers=["Content-Type"],
+        allow_headers=["Content-Type", "X-CSRF-Token"],
     )
