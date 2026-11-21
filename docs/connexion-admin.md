@@ -76,8 +76,9 @@ Ils créent et suppriment une base cardioscope_test_<uuid>, jamais la base appli
 Ils couvrent login, cookies/hash, CSRF, origines, compte inactif, expirations,
 révocation, erreurs, limitation globale et tentatives concurrentes avec des secrets fictifs.
 
-La déconnexion (#19), la protection de /predict et des autres routes métier (#20)
-et le formulaire frontend sont distincts. L’image Docker doit être reconstruite
-pour exposer les nouvelles routes ; les tests exécutent le code de la branche.
+Les routes métier `/predict` et `/model-info`, ainsi que `/admin/me`, exigent une
+session administrateur valide. `/health`, `/admin/csrf` et `/admin/login` restent
+accessibles sans session. La déconnexion est traitée séparément dans la tâche #19.
+L’image Docker doit être reconstruite pour appliquer la protection sur `/predict`.
 
 Référence : [OWASP CSRF](https://cheatsheetseries.owasp.org/cheatsheets/Cross-Site_Request_Forgery_Prevention_Cheat_Sheet.html).
