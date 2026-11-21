@@ -192,7 +192,9 @@ Pour démarrer frontend et backend ensemble, suivre le README de `CardioScope-AP
 ## Connexion administrateur (#18)
 
 Routes login, CSRF et identité : voir [le guide](docs/connexion-admin.md).
-La déconnexion et la protection des routes métier restent les tâches #19/#20.
+`POST /admin/logout` révoque la session active, supprime ses contextes CSRF et
+expire les cookies ; la protection de `/predict` et des autres routes métier
+reste la tâche #20.
 
 ## Informations du modèle (#24)
 
