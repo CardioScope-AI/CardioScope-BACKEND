@@ -7,8 +7,8 @@ API FastAPI de disponibilité du service et de prédiction via le pipeline Sciki
 Le [guide PostgreSQL et Alembic](docs/base-donnees.md) décrit la configuration
 DB_*, les tables admin/sessions/simulations/CSRF/limitation et les commandes de
 migration. Appliquer `alembic upgrade head` explicitement : le démarrage API ne
-crée ni tables ni compte administrateur. L’authentification et l’enregistrement
-des simulations restent à implémenter dans les tâches suivantes.
+crée ni tables ni compte administrateur. L’enregistrement des simulations
+relève de la tâche backend #21.
 
 ## Initialiser le compte admin (BACKEND #17)
 
@@ -16,7 +16,8 @@ Après les migrations, lancer `python -m app.init_admin --username admin` dans
 l’environnement backend configuré. Le mot de passe est saisi sans affichage et
 stocké uniquement sous forme de hash Argon2id. Aucun secret par défaut ni compte
 supplémentaire n’est créé. Voir le [guide d’initialisation](docs/initialisation-admin.md)
-pour Docker, le venv et le mode fichier de secret. La connexion HTTP reste à livrer en #18.
+pour Docker, le venv et le mode fichier de secret. La connexion HTTP est décrite
+dans le guide de la tâche #18 ci-dessous.
 
 ## Démarrer le serveur sous Windows (PowerShell)
 Depuis ce dépôt, avec Python 3.13.7 :
@@ -199,3 +200,21 @@ La déconnexion et la protection des routes métier restent les tâches #19/#20.
 `GET /model-info` est réservé à l’administrateur. Voir [le guide de la fiche et de
 la release ML](docs/informations-modele.md). Les exports historiques sans manifeste
 restent utilisables pour prédire, mais ne fournissent pas de fiche vérifiée (503).
+
+## Consultation de l’historique (#22)
+
+Après connexion, `GET /admin/simulations` renvoie les simulations par date puis
+identifiant décroissants. La liste accepte `page` (défaut 1), `page_size` (défaut
+20, maximum 100), `prediction` (0 ou 1), `created_from` inclus et
+`created_before` exclu. Les dates doivent préciser un fuseau horaire ; elles
+sont comparées en UTC. La réponse contient `items`, `page`, `page_size` et le
+`total` après filtrage. Une page vide reste une réponse 200.
+
+`GET /admin/simulations/{id}` retourne le profil complet, la classe et la
+version de la release qui a servi au calcul historique. Les deux routes
+requièrent une session admin valide et portent `Cache-Control: no-store`.
+Elles ne modifient pas les simulations. Une base indisponible donne 503
+`storage_unavailable`. Les formes JSON suivent le
+[contrat admin et historique](../CardioScope-APP/docs/contrat-admin-historique.md).
+Les tests HTTP de ces routes sont dans `tests/test_history.py` et utilisent une
+base temporaire indépendante.
