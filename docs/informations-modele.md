@@ -21,9 +21,10 @@ Les empreintes sont vérifiées sur les octets exacts qui seront lus/désériali
 Le backend ne relit pas une fiche indépendante à chaque requête. Une mise à jour
 des fichiers nécessite un redémarrage pour charger la nouvelle release.
 
-Le manifeste proposé ici constitue l’interface d’intégration à coordonner avec
-DATA-ML #19/#21/#22. Il n’est pas encore produit par les exports actuels. Ne pas
-présenter la route comme fournissant déjà une fiche de production validée.
+Le manifeste constitue l’interface d’intégration avec DATA-ML #22, qui produit
+désormais la release rf-cleveland-v1 après vérification des rapports. Sélectionner
+son dossier complet dans MODEL_PATH ; les exports historiques à la racine ne
+fournissent toujours pas cette liaison. La validation de production reste distincte.
 
 ```json
 {
@@ -69,3 +70,15 @@ Les tests utilisent un petit modèle synthétique, des scores fictifs et un
 répertoire temporaire. Ils vérifient 200, refus anonyme, legacy 503, empreintes,
 validation, absence de chemins et stabilité de la fiche chargée. Ils ne créent
 aucune release du vrai modèle et ne modifient pas ses artefacts.
+
+### Intégration Docker réelle, 20 novembre 2026
+
+La release rf-cleveland-v1 a été sélectionnée via MODEL_PATH dans APP, et l’image
+backend a été actualisée. Une recette HTTP sur la même image et la vraie release,
+avec une base PostgreSQL et un admin temporaires, a validé CSRF, login, /me et
+/model-info authentifié en 200. La route anonyme renvoie 401. Version et hash
+correspondent au manifeste ; accuracy de test 0,8689 et réponse no-store.
+Compte et base temporaires ont été supprimés. Le compte réel n’a pas été modifié.
+Le rapport et le script reproductible sont dans APP :
+docs/verification-model-info-docker.json et scripts/verify_model_info_release.py.
+Cela ne valide pas encore le formulaire frontend ni HTTPS en production.
