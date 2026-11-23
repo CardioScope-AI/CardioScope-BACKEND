@@ -16,6 +16,10 @@ Cette branche utilise le compte créé par #17 et les tables de #16, sans nouvel
    /admin/csrf pour récupérer son nouveau jeton.
 5. `GET /admin/me` vérifie compte actif, révocation, expiration absolue et
    inactivité de 30 minutes. Un succès actualise last_seen_at sans prolonger les 8 heures.
+6. `POST /admin/logout` révoque la session courante, supprime ses contextes CSRF
+   et expire les cookies de session et CSRF. Une session absente ou déjà expirée
+   peut être déconnectée de façon répétable ; une session active exige l'Origin
+   autorisée et le jeton CSRF courant.
 
 Chaque GET /admin/csrf renouvelle le contexte de ce navigateur. Un autre onglet
 avec un ancien jeton doit le redemander après un refus 403. Les contextes
@@ -58,6 +62,7 @@ la purge périodique des compteurs, contextes et sessions reste à intégrer à 
 
 | Statut | Code | Cause |
 | --- | --- | --- |
+| 204 | — | Déconnexion terminée, cookies supprimés |
 | 401 | invalid_credentials | Login refusé, cause non révélée |
 | 401 | unauthenticated | /me sans session valide |
 | 403 | csrf_failed | Origine, contexte ou jeton refusé |
@@ -76,8 +81,8 @@ Ils créent et suppriment une base cardioscope_test_<uuid>, jamais la base appli
 Ils couvrent login, cookies/hash, CSRF, origines, compte inactif, expirations,
 révocation, erreurs, limitation globale et tentatives concurrentes avec des secrets fictifs.
 
-La déconnexion (#19), la protection de /predict et des autres routes métier (#20)
-et le formulaire frontend sont distincts. L’image Docker doit être reconstruite
-pour exposer les nouvelles routes ; les tests exécutent le code de la branche.
+La déconnexion est disponible sur `POST /admin/logout`. La protection de `/predict`
+et des autres routes métier relève de #20. L’image Docker doit être reconstruite
+pour exposer la route ; les tests exécutent le code de la branche.
 
 Référence : [OWASP CSRF](https://cheatsheetseries.owasp.org/cheatsheets/Cross-Site_Request_Forgery_Prevention_Cheat_Sheet.html).
