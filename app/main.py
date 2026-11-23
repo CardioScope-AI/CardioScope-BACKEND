@@ -14,6 +14,7 @@ from app.cors import with_cors
 from app.auth import AuthError, ErrorEnvelope, register_auth, require_admin
 from app.model_info import ModelInfo, load_snapshot
 from app.errors import register_error_handlers
+from app.history import router as history_router
 from app.profile import COLUMNS, PatientProfile
 
 BACKEND_ROOT = Path(__file__).resolve().parents[1]
@@ -46,6 +47,7 @@ async def lifespan(app: FastAPI):
 api = FastAPI(title="CardioScope", version="0.1.0", lifespan=lifespan)
 register_error_handlers(api)
 register_auth(api)
+api.include_router(history_router)
 
 
 class PredictionResponse(BaseModel):
