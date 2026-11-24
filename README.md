@@ -202,11 +202,11 @@ Pour démarrer frontend et backend ensemble, suivre le README de `CardioScope-AP
 ## Connexion administrateur (#18)
 
 Routes login, CSRF et identité : voir [le guide](docs/connexion-admin.md).
-La déconnexion relève de la branche #19. `/predict`, `/model-info` et `/admin/me`
-exigent une session administrateur valide ; `/health`, `/admin/csrf` et
-`/admin/login` restent publics. Le frontend actuel n'implémente pas encore le
-parcours de connexion : ses appels à `/predict` recevront 401 jusqu'à cette
-intégration.
+`POST /admin/logout` révoque la session active, supprime ses contextes CSRF et
+expire les cookies. `/predict`, `/model-info` et `/admin/me` exigent une session
+administrateur valide ; `/health`, `/admin/csrf` et `/admin/login` restent publics.
+Le frontend actuel n'implémente pas encore le parcours de connexion : ses appels
+à `/predict` recevront 401 jusqu'à cette intégration.
 
 ## Informations du modèle (#24)
 

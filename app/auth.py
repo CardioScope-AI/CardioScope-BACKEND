@@ -246,6 +246,31 @@ def me(auth=Depends(require_admin)):
     return identity(*auth)
 
 
+@router.post("/logout", status_code=204, responses={
+    204: {"description": "Session révoquée et cookies supprimés."},
+})
+def logout(request: Request, response: Response, db=Depends(auth_database)):
+    now = utcnow()
+    found = find_session(db, request, now)
+    if found is not None:
+        session, _ = found
+        check_csrf(db, request, now, session.id)
+        session.revoked_at = now
+        db.execute(sa.delete(CsrfContext).where(CsrfContext.session_id == session.id))
+
+    # Also remove this browser's anonymous or expired CSRF context. An expired
+    # session is already unusable, so logout remains safe to repeat.
+    binding = request.cookies.get(CSRF_COOKIE, "")
+    if binding and len(binding) <= 256:
+        db.execute(sa.delete(CsrfContext).where(CsrfContext.binding_hash == digest(binding)))
+    db.commit()
+
+    set_cookie(response, SESSION_COOKIE, "", 0)
+    set_cookie(response, CSRF_COOKIE, "", 0)
+    response.status_code = 204
+    return response
+
+
 def register_auth(api):
     @api.exception_handler(AuthError)
     async def auth_error(request, exc):

@@ -16,6 +16,10 @@ Cette branche utilise le compte créé par #17 et les tables de #16, sans nouvel
    /admin/csrf pour récupérer son nouveau jeton.
 5. `GET /admin/me` vérifie compte actif, révocation, expiration absolue et
    inactivité de 30 minutes. Un succès actualise last_seen_at sans prolonger les 8 heures.
+6. `POST /admin/logout` révoque la session courante, supprime ses contextes CSRF
+   et expire les cookies de session et CSRF. Une session absente ou déjà expirée
+   peut être déconnectée de façon répétable ; une session active exige l'Origin
+   autorisée et le jeton CSRF courant.
 
 Chaque GET /admin/csrf renouvelle le contexte de ce navigateur. Un autre onglet
 avec un ancien jeton doit le redemander après un refus 403. Les contextes
@@ -58,6 +62,7 @@ la purge périodique des compteurs, contextes et sessions reste à intégrer à 
 
 | Statut | Code | Cause |
 | --- | --- | --- |
+| 204 | — | Déconnexion terminée, cookies supprimés |
 | 401 | invalid_credentials | Login refusé, cause non révélée |
 | 401 | unauthenticated | /me sans session valide |
 | 403 | csrf_failed | Origine, contexte ou jeton refusé |
@@ -78,7 +83,9 @@ révocation, erreurs, limitation globale et tentatives concurrentes avec des sec
 
 Les routes métier `/predict` et `/model-info`, ainsi que `/admin/me`, exigent une
 session administrateur valide. `/health`, `/admin/csrf` et `/admin/login` restent
-accessibles sans session. La déconnexion est traitée séparément dans la tâche #19.
-L’image Docker doit être reconstruite pour appliquer la protection sur `/predict`.
+accessibles sans session. La déconnexion est disponible sur `POST /admin/logout` ;
+elle révoque la session et supprime ses cookies. L’image Docker doit être
+reconstruite pour appliquer la protection sur `/predict` et inclure la route de
+déconnexion. Le frontend doit envoyer les cookies et le jeton CSRF.
 
 Référence : [OWASP CSRF](https://cheatsheetseries.owasp.org/cheatsheets/Cross-Site_Request_Forgery_Prevention_Cheat_Sheet.html).
