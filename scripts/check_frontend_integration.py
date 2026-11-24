@@ -5,6 +5,8 @@ avant d'exécuter ce script. Seuls des profils fictifs sont envoyés.
 """
 
 import argparse
+import os
+from urllib.parse import urlsplit
 
 import httpx
 
@@ -28,6 +30,14 @@ def main():
     args = parser.parse_args()
     backend = args.backend.rstrip("/")
     frontend = args.frontend.rstrip("/")
+    username = os.environ.get("CARDIOSCOPE_ADMIN_USERNAME", "")
+    password = os.environ.get("CARDIOSCOPE_ADMIN_PASSWORD", "")
+    require(username and password,
+            "Définir CARDIOSCOPE_ADMIN_USERNAME et CARDIOSCOPE_ADMIN_PASSWORD pour le test protégé.")
+    backend_parts, frontend_parts = urlsplit(backend), urlsplit(frontend)
+    require(backend_parts.hostname == frontend_parts.hostname,
+            "Backend et frontend doivent utiliser le même hôte pour partager le cookie de session.")
+    frontend_origin = f"{frontend_parts.scheme}://{frontend_parts.netloc}"
 
     with httpx.Client(timeout=15) as client:
         page = client.get(frontend)
@@ -41,6 +51,16 @@ def main():
                 "Le backend n'a pas chargé le modèle.")
         require(proxy_health.status_code == 200 and proxy_health.json() == expected_health,
                 "Le proxy Vite ne transmet pas correctement /api/health.")
+
+        csrf = client.get(f"{backend}/admin/csrf")
+        require(csrf.status_code == 200 and csrf.json().get("csrf_token"),
+                "Impossible d'obtenir le jeton CSRF de connexion.")
+        login = client.post(f"{backend}/admin/login",
+                            json={"username": username, "password": password},
+                            headers={"Origin": frontend_origin,
+                                     "X-CSRF-Token": csrf.json()["csrf_token"]})
+        require(login.status_code == 200,
+                f"Connexion administrateur échouée : HTTP {login.status_code}.")
 
         direct = client.post(f"{backend}/predict", json=PROFILE)
         proxied = client.post(f"{frontend}/api/predict", json=PROFILE)

@@ -10,6 +10,7 @@ from unittest.mock import patch
 import numpy as np
 from fastapi.testclient import TestClient
 
+from app.auth import require_admin
 from app.main import DEFAULT_MODEL_PATH, api, app
 from app.profile import COLUMNS
 
@@ -37,12 +38,14 @@ def client_with_pipeline(pipeline):
     with tempfile.TemporaryDirectory() as directory:
         absent = str(Path(directory) / "absent.joblib")
         with patch.dict(os.environ, {"MODEL_PATH": absent}):
-            with TestClient(app, raise_server_exceptions=False) as client:
-                api.state.pipeline = pipeline
-                try:
+            api.dependency_overrides[require_admin] = lambda: (None, None)
+            try:
+                with TestClient(app, raise_server_exceptions=False) as client:
+                    api.state.pipeline = pipeline
                     yield client
-                finally:
-                    api.state.pipeline = None
+            finally:
+                api.state.pipeline = None
+                api.dependency_overrides.pop(require_admin, None)
 
 
 class PredictionEndpointTests(unittest.TestCase):
@@ -120,16 +123,20 @@ class RealPipelineTests(unittest.TestCase):
              "oldpeak": 0.6, "slope": 1, "ca": 0, "thal": 3},
         ]
         with patch.dict(os.environ, {"MODEL_PATH": ""}):
-            with TestClient(app, raise_server_exceptions=False) as client:
-                health = client.get("/health")
-                self.assertEqual(health.status_code, 200)
-                self.assertTrue(health.json()["model_ready"])
-                for profile in profiles:
-                    with self.subTest(age=profile["age"]):
-                        response = client.post("/predict", json=profile)
-                        self.assertEqual(response.status_code, 200)
-                        self.assertIn(response.json(),
-                                      ({"prediction": 0}, {"prediction": 1}))
+            api.dependency_overrides[require_admin] = lambda: (None, None)
+            try:
+                with TestClient(app, raise_server_exceptions=False) as client:
+                    health = client.get("/health")
+                    self.assertEqual(health.status_code, 200)
+                    self.assertTrue(health.json()["model_ready"])
+                    for profile in profiles:
+                        with self.subTest(age=profile["age"]):
+                            response = client.post("/predict", json=profile)
+                            self.assertEqual(response.status_code, 200)
+                            self.assertIn(response.json(),
+                                          ({"prediction": 0}, {"prediction": 1}))
+            finally:
+                api.dependency_overrides.pop(require_admin, None)
 
 
 if __name__ == "__main__":

@@ -91,15 +91,25 @@ Dans le second, depuis le dépôt voisin `CardioScope-FRONTEND`, lancer Vite :
 npm run dev
 ```
 
+Pour le backend local en HTTP, configurer `AUTH_COOKIE_SECURE=false` avant son
+démarrage. Laisser `true` en HTTPS. Après avoir appliqué les migrations et
+initialisé l'administrateur, définir ses identifiants uniquement dans
+l'environnement du terminal de vérification :
+
+```powershell
+$env:CARDIOSCOPE_ADMIN_USERNAME="admin"
+$env:CARDIOSCOPE_ADMIN_PASSWORD="<mot-de-passe-admin>"
+```
+
 Dans un troisième terminal, depuis `CardioScope-BACKEND`, lancer la vérification :
 
 ```powershell
 .\.venv\Scripts\python.exe scripts/check_frontend_integration.py
 ```
 
-Le script utilise uniquement un profil fictif. Il vérifie que la page du frontend répond, que le modèle est prêt sur `/health`, que le proxy Vite transmet `/api/health` et `/api/predict`, que la prédiction directe est identique à celle via le proxy, et qu’un profil invalide reçoit une erreur 422 sans écho de la valeur saisie. Un échec termine le script avec un code non nul. Le proxy Vite cible `http://127.0.0.1:8000` par défaut ; adapter `--backend` et `--frontend` si les serveurs utilisent d’autres adresses. Arrêter les serveurs avec Ctrl+C après la vérification.
+Le script utilise uniquement un profil fictif. Il se connecte d'abord comme administrateur avec CSRF, puis vérifie la page frontend, `/health`, la prédiction directe et via le proxy, et la réponse 422 pour un profil invalide. Il ne journalise pas le mot de passe. Un échec termine le script avec un code non nul. Les URL backend et frontend doivent utiliser le même nom d'hôte pour partager le cookie. Le proxy Vite cible `http://127.0.0.1:8000` par défaut ; adapter `--backend` et `--frontend` si les serveurs utilisent d’autres adresses. Arrêter les serveurs avec Ctrl+C et supprimer ensuite les deux variables d'environnement du terminal.
 
-Vérification locale du 17 novembre 2026 : les 21 tests backend passent, dont le test du véritable artefact ML. Le contrôle HTTP complet avec le frontend Vite a réussi : modèle prêt, prédiction 0/1 identique en direct et via `/api`, et validation 422 transmise. Les trois profils fictifs ont été soumis dans le navigateur : classes affichées 0, 1 et 0, dans cet ordre. En effaçant l’âge avant la soumission, le formulaire affiche « Renseignez le champ « Âge ». » et n’appelle pas le modèle. Ces résultats concernent l’artefact et les versions présents sur ce poste ; les répéter après un changement de modèle ou de contrat.
+La vérification locale du 17 novembre 2026 a été réalisée avant la protection administrateur de `/predict`. Elle n'atteste pas le nouveau parcours de connexion. Les prédictions doivent maintenant être vérifiées avec le script ci-dessus et une session administrateur.
 
 ## Lancement sous Linux (tâche 09)
 
@@ -194,8 +204,10 @@ Pour démarrer frontend et backend ensemble, suivre le README de `CardioScope-AP
 
 Routes login, CSRF et identité : voir [le guide](docs/connexion-admin.md).
 `POST /admin/logout` révoque la session active, supprime ses contextes CSRF et
-expire les cookies ; la protection de `/predict` et des autres routes métier
-reste la tâche #20.
+expire les cookies. `/predict`, `/model-info` et `/admin/me` exigent une session
+administrateur valide ; `/health`, `/admin/csrf` et `/admin/login` restent publics.
+Le frontend actuel n'implémente pas encore le parcours de connexion : ses appels
+à `/predict` recevront 401 jusqu'à cette intégration.
 
 ## Informations du modèle (#24)
 

@@ -72,8 +72,11 @@ def health():
                         content={"status": "ready" if ready else "model_unavailable", "model_ready": ready})
 
 
-@api.post("/predict", response_model=PredictionResponse)
-def predict(profile: PatientProfile):
+@api.post("/predict", response_model=PredictionResponse, responses={
+    401: {"model": ErrorEnvelope, "description": "Session administrateur absente ou expirée."},
+    503: {"model": ErrorEnvelope, "description": "Modèle ou stockage indisponible."},
+})
+def predict(profile: PatientProfile, auth=Depends(require_admin)):
     pipeline = api.state.pipeline
     if pipeline is None:
         raise HTTPException(status_code=503)
