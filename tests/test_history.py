@@ -1,7 +1,9 @@
 """History contract tests on a disposable SQLite table; no application DB is used."""
 
 from datetime import datetime, timedelta, timezone
+from types import SimpleNamespace
 import unittest
+from unittest.mock import patch
 from uuid import UUID
 
 from fastapi.testclient import TestClient
@@ -9,8 +11,9 @@ import sqlalchemy as sa
 from sqlalchemy.orm import Session
 from sqlalchemy.pool import StaticPool
 
-from app.auth import require_admin
+from app.auth import AuthError, require_admin
 from app.database import get_session
+import app.history as history
 from app.main import api, app
 from app.models import Simulation
 
@@ -48,7 +51,11 @@ class HistoryTests(unittest.TestCase):
                 yield db
 
         api.dependency_overrides[get_session] = test_session
-        api.dependency_overrides[require_admin] = lambda: (object(), object())
+        self.admin_session = SimpleNamespace(id=UUID(int=99))
+        api.dependency_overrides[require_admin] = lambda: (object(), self.admin_session)
+        csrf_patch = patch.object(history, "check_csrf")
+        self.check_csrf = csrf_patch.start()
+        self.addCleanup(csrf_patch.stop)
         self.client = TestClient(app)
         self.addCleanup(self.client.close)
         self.addCleanup(api.dependency_overrides.clear)
@@ -86,6 +93,42 @@ class HistoryTests(unittest.TestCase):
         self.assertEqual(absent.status_code, 404)
         self.assertEqual(absent.json()["error"]["code"], "not_found")
 
+    def test_delete_requires_csrf_and_removes_only_the_simulation(self):
+        response = self.client.delete(f"/admin/simulations/{self.ids[0]}")
+        self.assertEqual(response.status_code, 204, response.text)
+        self.assertEqual(response.content, b"")
+        self.check_csrf.assert_called_once()
+        self.assertEqual(self.check_csrf.call_args.args[3], self.admin_session.id)
+
+        self.assertEqual(
+            self.client.get(f"/admin/simulations/{self.ids[0]}").status_code,
+            404,
+        )
+        missing = self.client.delete(f"/admin/simulations/{self.ids[0]}")
+        self.assertEqual(missing.status_code, 404)
+        self.assertEqual(missing.json()["error"]["code"], "not_found")
+
+    def test_delete_rejects_invalid_id_and_csrf(self):
+        invalid_id = self.client.delete("/admin/simulations/not-a-uuid")
+        self.assertEqual(invalid_id.status_code, 422)
+
+        self.check_csrf.side_effect = AuthError(
+            403, "csrf_failed", "Origine ou protection CSRF invalide."
+        )
+        refused = self.client.delete(f"/admin/simulations/{self.ids[0]}")
+        self.assertEqual(refused.status_code, 403)
+        self.assertEqual(refused.json()["error"]["code"], "csrf_failed")
+        self.check_csrf.side_effect = None
+        self.assertEqual(
+            self.client.get(f"/admin/simulations/{self.ids[0]}").status_code,
+            200,
+        )
+
+    def test_delete_requires_admin_session(self):
+        api.dependency_overrides.pop(require_admin)
+        response = self.client.delete(f"/admin/simulations/{self.ids[0]}")
+        self.assertEqual(response.status_code, 401)
+
     def test_invalid_inputs_and_auth(self):
         for suffix in ("?page=0", "?page_size=101", "?prediction=2",
                        "?created_from=invalid", "?created_from=2026-11-20T12:00:00",
@@ -113,3 +156,34 @@ class HistoryTests(unittest.TestCase):
             self.assertEqual(response.status_code, 503)
             self.assertEqual(response.json()["error"]["code"], "storage_unavailable")
             self.assertNotIn("private", response.text)
+
+    def test_delete_commit_failure_rolls_back_and_returns_503(self):
+        class BrokenDeleteSession:
+            def __init__(self):
+                self.deleted = False
+                self.rolled_back = False
+
+            def get(self, *_):
+                return object()
+
+            def delete(self, _row):
+                self.deleted = True
+
+            def commit(self):
+                raise sa.exc.OperationalError(
+                    "DELETE private", {}, Exception("password-private")
+                )
+
+            def rollback(self):
+                self.rolled_back = True
+
+        broken = BrokenDeleteSession()
+        api.dependency_overrides[get_session] = lambda: broken
+
+        response = self.client.delete(f"/admin/simulations/{self.ids[0]}")
+
+        self.assertEqual(response.status_code, 503)
+        self.assertEqual(response.json()["error"]["code"], "storage_unavailable")
+        self.assertNotIn("private", response.text)
+        self.assertTrue(broken.deleted)
+        self.assertTrue(broken.rolled_back)
