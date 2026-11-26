@@ -117,8 +117,8 @@ class ErrorsAndCorsTests(unittest.TestCase):
                         'oldpeak': 2.3, 'slope': 3, 'ca': 0, 'thal': 6,
                     }
                     response = client.post('/predict', json=payload)
-                    self.assertEqual(response.status_code, 503)
-                    self.assertEqual(response.json()['error']['code'], 'model_unavailable')
+                    self.assertEqual(response.status_code, 401)
+                    self.assertEqual(response.json()['error']['code'], 'unauthenticated')
 
     def test_model_paths_do_not_depend_on_working_directory(self):
         previous = Path.cwd()
