@@ -4,12 +4,12 @@ from datetime import datetime, timezone
 from typing import Annotated, Literal
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, Query, Request, Response
 from pydantic import BaseModel
 import sqlalchemy as sa
 from sqlalchemy.exc import SQLAlchemyError
 
-from app.auth import AuthError, ErrorEnvelope, require_admin
+from app.auth import AuthError, ErrorEnvelope, check_csrf, require_admin, utcnow
 from app.database import get_session
 from app.models import Simulation
 from app.profile import COLUMNS, PatientProfile
@@ -127,3 +127,34 @@ def get_simulation(simulation_id: UUID, auth=Depends(require_admin), db=Depends(
         "artifact_sha256": row.artifact_sha256,
         "profile": {name: getattr(row, name) for name in COLUMNS},
     }
+
+
+@router.delete("/{simulation_id}", status_code=204, response_class=Response, responses={
+    204: {"description": "Simulation supprimée."},
+    401: {"model": ErrorEnvelope}, 403: {"model": ErrorEnvelope},
+    404: {"model": ErrorEnvelope}, 422: {"model": ErrorEnvelope},
+    503: {"model": ErrorEnvelope},
+})
+def delete_simulation(
+    simulation_id: UUID,
+    request: Request,
+    auth=Depends(require_admin),
+    db=Depends(get_session),
+) -> Response:
+    _, admin_session = auth
+    check_csrf(db, request, utcnow(), admin_session.id)
+
+    try:
+        row = db.get(Simulation, simulation_id)
+        if row is None:
+            raise AuthError(404, "not_found", "Simulation introuvable.")
+        db.delete(row)
+        db.commit()
+    except SQLAlchemyError:
+        try:
+            db.rollback()
+        except SQLAlchemyError:
+            pass
+        storage_unavailable()
+
+    return Response(status_code=204)
