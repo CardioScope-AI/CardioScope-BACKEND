@@ -13,6 +13,7 @@ from pydantic import BaseModel
 from app.cors import with_cors
 from app.auth import AuthError, ErrorEnvelope, register_auth, require_admin
 from app.model_info import ModelInfo, load_snapshot
+from app.model_catalog import ModelCatalog, load_catalog
 from app.errors import register_error_handlers
 from app.history import router as history_router
 from app.profile import COLUMNS, PatientProfile
@@ -33,6 +34,7 @@ def model_path():
 async def lifespan(app: FastAPI):
     app.state.pipeline = None
     app.state.model_info = None
+    app.state.model_catalog = None
     path = model_path()
     if path.is_file():
         try:
@@ -41,6 +43,17 @@ async def lifespan(app: FastAPI):
             app.state.model_info = info
         except Exception:
             logging.exception("Pipeline inutilisable : API disponible sans modèle")
+    try:
+        configured = os.environ.get("COMPARISON_MODEL_PATHS", "")
+        paths = []
+        for value in configured.split(","):
+            if value.strip():
+                candidate = Path(value.strip()).expanduser()
+                paths.append(candidate if candidate.is_absolute() else BACKEND_ROOT / candidate)
+        if app.state.model_info is not None:
+            app.state.model_catalog = load_catalog(app.state.model_info, paths)
+    except Exception:
+        logging.exception("Catalogue indisponible ; le prédicteur actif reste indépendant")
     yield
 
 
@@ -52,6 +65,16 @@ api.include_router(history_router)
 
 class PredictionResponse(BaseModel):
     prediction: Literal[0, 1]
+
+
+@api.get("/models", response_model=ModelCatalog, tags=["Modèle"], responses={
+    401: {"model": ErrorEnvelope}, 503: {"model": ErrorEnvelope},
+})
+def model_catalog(response: Response, auth=Depends(require_admin)):
+    response.headers["Cache-Control"] = "no-store"
+    if api.state.model_catalog is None:
+        raise AuthError(503, "catalog_unavailable", "Le catalogue des modèles est indisponible.")
+    return api.state.model_catalog
 
 
 @api.get("/model-info", response_model=ModelInfo, tags=["Modèle"], responses={

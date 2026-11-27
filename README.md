@@ -220,3 +220,18 @@ Elles ne modifient pas les simulations. Une base indisponible donne 503
 [contrat admin et historique](../CardioScope-APP/docs/contrat-admin-historique.md).
 Les tests HTTP de ces routes sont dans `tests/test_history.py` et utilisent une
 base temporaire indépendante.
+## Catalogue de comparaison
+
+`GET /models` nécessite une session administrateur et renvoie la version active
+et les fiches des versions comparatives vérifiées. `GET /model-info` reste la
+fiche du modèle actif et `/predict` utilise toujours Random Forest.
+
+Définir `COMPARISON_MODEL_PATHS` avec les chemins des pipelines de releases
+complètes XGBoost, séparés par des virgules, puis redémarrer le backend. Les
+chemins relatifs sont résolus depuis ce dépôt. Les empreintes du modèle, des
+métadonnées et du rapport sont vérifiées au démarrage. Les objets XGBoost ne
+sont pas désérialisés et aucune dépendance XGBoost n’est nécessaire ici.
+
+Sans chemins comparatifs, le catalogue contient seulement la release active.
+Une comparaison déclarée invalide produit un 503 sur `/models`, sans désactiver
+le modèle actif. Le contenu reste un snapshot jusqu’au prochain redémarrage.
