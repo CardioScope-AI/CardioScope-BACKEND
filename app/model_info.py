@@ -36,6 +36,7 @@ class CvMetrics(StrictModel):
     recall: Score | None = None
     f1: Score | None = None
     roc_auc: Score | None = None
+    specificity: Score | None = None
 
 
 class TestMetrics(CvMetrics):
@@ -70,7 +71,7 @@ class ModelInfo(StrictModel):
     schema_version: Literal[1]
     model_version: Text
     artifact_sha256: Hash
-    model_name: Literal["RandomForestClassifier"]
+    model_name: Literal["RandomForestClassifier", "XGBClassifier"]
     dataset: Literal["UCI Heart Disease / Cleveland"]
     features: list[str]
     target: dict[str, str]
@@ -93,14 +94,9 @@ def read_json(data):
     return json.loads(data, object_pairs_hook=unique_keys)
 
 
-def load_snapshot(path):
-    """Fixed sibling filenames, hashes checked on the exact bytes deserialized.
-
-    Legacy exports retain prediction compatibility but expose no model-info.
-    A present but invalid manifest rejects the entire declared release.
-    Trusted joblib files only: hashes prove consistency, not publisher authenticity.
-    """
-    artifact = path.read_bytes()
+def read_release_info(path, artifact=None):
+    """Check the snapshot bytes without executing candidate model code."""
+    artifact = path.read_bytes() if artifact is None else artifact
     manifest_path = path.parent / "release.json"
     info = None
     if manifest_path.exists():
@@ -113,6 +109,12 @@ def load_snapshot(path):
             if sha256(data) != expected:
                 raise ValueError("Release hash mismatch")
         metadata, report = read_json(metadata_bytes), read_json(report_bytes)
+        for record in (metadata, report):
+            if "artifact_sha256" in record and record["artifact_sha256"] != release.artifact_sha256:
+                raise ValueError("Artifact provenance mismatch")
+        if ("dataset_sha256" in metadata and "dataset_sha256" in report
+                and metadata["dataset_sha256"] != report["dataset_sha256"]):
+            raise ValueError("Dataset provenance mismatch")
         if (metadata["features"] != list(COLUMNS) or metadata["dataset"] != "Cleveland"
                 or report["dataset"] != "Cleveland" or metadata["target"]["name"] != "num"
                 or metadata["test_samples"] != report["test_samples"]):
@@ -127,6 +129,15 @@ def load_snapshot(path):
                 cv_folds=metadata["cv_folds"], cv_metrics=metadata.get("cv_metrics", {}),
                 test_metrics=report.get("metrics", {}), confusion_matrix=report.get("confusion_matrix")),
         )
+    return info
+
+
+def load_snapshot(path):
+    """Load the active RF only; hashes precede deserialization of exact bytes."""
+    artifact = path.read_bytes()
+    info = read_release_info(path, artifact)
+    if info and info.model_name != "RandomForestClassifier":
+        raise ValueError("Only Random Forest is enabled for prediction")
     pipeline = joblib.load(BytesIO(artifact))
     if not callable(getattr(pipeline, "predict", None)):
         raise ValueError("Missing predict")
